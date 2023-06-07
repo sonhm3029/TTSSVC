@@ -1,4 +1,5 @@
 const jwt = require("jsonwebtoken");
+const User = require("../models/User");
 
 const authMiddleWare = async (req, res, next) => {
   try {
@@ -14,7 +15,7 @@ const authMiddleWare = async (req, res, next) => {
     token = token.replace("Bearer ", "");
     console.log(token);
 
-    jwt.verify(token, process.env.SECRET_JWT, function (err, decoded) {
+    jwt.verify(token, process.env.SECRET_JWT, async function (err, decoded) {
       if (err) {
         res.json({
           status: "ERROR",
@@ -22,8 +23,20 @@ const authMiddleWare = async (req, res, next) => {
           message: "Invalid Credentials",
         });
       } else {
-        res.locals.username = decoded?.compareRes?.username
-        next()
+        let user = decoded?.compareRes;
+        let existUser = await User.findOne({ username: user?.username });
+        let isValidCredentials =
+          existUser && user?.password && existUser?.password === user?.password;
+        if (isValidCredentials) {
+          res.locals.username = decoded?.compareRes?.username;
+          next();
+        } else {
+          res.json({
+            status: "ERROR",
+            code: 403,
+            message: "Invalid Credentials",
+          });
+        }
       }
     });
   } catch (error) {
